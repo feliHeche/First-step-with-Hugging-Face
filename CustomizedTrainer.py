@@ -1,6 +1,5 @@
 from transformers import AutoModelForSequenceClassification
 from OurDataset import OurDataset
-from transformers import AdamW
 from transformers import get_scheduler
 import torch
 from tqdm.auto import tqdm
@@ -29,7 +28,7 @@ class CustomizedTrainer:
 
         # optimizer
         if self.config.optimizer == "adamw":
-            self.optimizer = AdamW(self.model.parameters(), lr=self.config.lr)
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config.lr)
         else:
             raise NotImplementedError("Optimizer {} not implemented.".format(self.config.optimizer))
         
