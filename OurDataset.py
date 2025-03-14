@@ -9,9 +9,7 @@ class OurDataset:
         """
         Implementation of a dataset using the Hugging Face library.
 
-        :param checkpoint: checkpoint used to load the tokenizer
-        :param dataset_name: name of the dataset
-        :param dataset_type: type of the dataset
+        :param config: configuration used to train and evaluate the model. See parse_args() in main.py for more details.
         """
         # saving all parameters
         self.config = config
@@ -54,6 +52,9 @@ class OurDataset:
     def _tokenize_function(self, example):
         """
         Tokenization function used to tokenize the dataset.
+
+        :param example: text to tokenize.
+        :return: tokenized text.
         """
         return self.tokenizer(example["sentence1"], example["sentence2"], truncation=True)
 

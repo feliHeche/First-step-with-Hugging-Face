@@ -12,9 +12,9 @@ import datetime
 class CustomizedTrainer:
     def __init__(self, config, dataset: OurDataset):
         """
-        Implementation of a LLM model using the Hugging Face library.
+        Implementation of a NLP model using the Hugging Face library.
 
-        :param checkpoint: checkpoint used to load the model
+        :param config: configuration used to train and evaluate the model. See parse_args() in main.py for more details.
         :parma dataset: dataset used to train the model. Expected to be an instance of OurDataset.
         """
         # loading all parameters
@@ -76,6 +76,8 @@ class CustomizedTrainer:
     def _train_model_one_epoch(self, tmp=0):
         """
         Train the model for one epoch.
+
+        :param tmp: number of training steps already done.
         """
         # Used to track accuracy and loss
         running_loss = 0.0
@@ -121,6 +123,8 @@ class CustomizedTrainer:
     def _eval_model(self, step=0):
         """
         Evaluate the model.
+
+        :param step: number of evaluations already done.
         """
         metric = evaluate.load(self.config.data_name, self.config.data_type)
         print('Model evaluation:')
