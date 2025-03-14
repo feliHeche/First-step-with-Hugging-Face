@@ -1,7 +1,7 @@
 from datasets import load_dataset
 from transformers import AutoTokenizer, DataCollatorWithPadding
 from torch.utils.data import DataLoader
-
+from accelerate import Accelerator
 
 
 class OurDataset:
@@ -47,6 +47,10 @@ class OurDataset:
                                           batch_size=self.config.batch_size, 
                                           shuffle=self.config.shuffle,
                                           collate_fn=self.data_collator)
+        
+        # prepare dataloard using accelaratore
+        accelerator = Accelerator()
+        self.train_dataloader, self.eval_dataloader = accelerator.prepare(self.train_dataloader, self.eval_dataloader)
         
 
     def _tokenize_function(self, example):

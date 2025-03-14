@@ -6,6 +6,7 @@ from tqdm.auto import tqdm
 import evaluate
 from torch.utils.tensorboard import SummaryWriter
 import datetime
+from accelerate import Accelerator
 
 
 
@@ -40,11 +41,6 @@ class CustomizedTrainer:
             num_training_steps=self.config.epochs*len(self.dataset.train_dataloader)
         )
 
-        # device
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model.to(self.device)
-
-
         # log folder
         current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
@@ -57,6 +53,10 @@ class CustomizedTrainer:
         # Log to TensorBoard
         self.log_writer.add_text("hyperparameters", hyperparameters, global_step=0)
 
+
+        # accelerator used to handle different working environments (gpu vs multiple gpu vs tpu)
+        self.accelerator = Accelerator()
+        self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
     
 
     def training(self):
@@ -87,13 +87,12 @@ class CustomizedTrainer:
         self.model.train()
         
         for batch in self.dataset.train_dataloader:
-            # move the batch to the device
-            batch = {k: v.to(self.device) for k, v in batch.items()}
         
             outputs = self.model(**batch)
             loss = outputs.loss
+
             # compute gradient
-            loss.backward()
+            self.accelerator.backward(loss)
 
             # update the model
             self.optimizer.step()
@@ -130,8 +129,6 @@ class CustomizedTrainer:
         print('Model evaluation:')
         self.model.eval()
         for batch in self.dataset.eval_dataloader:
-            # move the batch to the device
-            batch = {k: v.to(self.device) for k, v in batch.items()}
 
             # ensure no gradient is computed
             with torch.no_grad():
@@ -145,7 +142,6 @@ class CustomizedTrainer:
             print(f"{k}: {v}")
 
             # writing metrics in tensorboard
-            #title = "Evaluation: " + str(k)
             self.log_writer.add_scalar("Evaluation: " + str(k), v, step)
 
 
