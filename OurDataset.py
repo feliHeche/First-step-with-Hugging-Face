@@ -20,9 +20,6 @@ class OurDataset:
         # loading the tokenize associated to the checkpoint model
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.checkpoint)
 
-        # loading the data collator
-        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
-
         # tokenizing the dataset using some customized tokenization function
         self.tokenized_datasets = self.raw_datasets.map(lambda examples: self._tokenize_function(examples), batched=True)
 
@@ -35,7 +32,10 @@ class OurDataset:
         self.tokenized_datasets = self.tokenized_datasets.rename_column("label", "labels")
         # ensure everything is using torch
         self.tokenized_datasets.set_format("torch")
-        self.tokenized_datasets["train"].column_names
+        # self.tokenized_datasets["train"].column_names
+
+        # loading the data collator
+        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
 
         # Train and eval dataloaders construction
         self.train_dataloader = DataLoader(self.tokenized_datasets["train"], 
@@ -52,6 +52,7 @@ class OurDataset:
         accelerator = Accelerator()
         self.train_dataloader, self.eval_dataloader = accelerator.prepare(self.train_dataloader, self.eval_dataloader)
         
+
 
     def _tokenize_function(self, example):
         """

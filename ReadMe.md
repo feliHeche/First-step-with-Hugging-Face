@@ -2,7 +2,7 @@
 
 
 ## 1. Overview
-This repository contains a small toy project designed to learn how to use the `transformers` library from Hugging Face. This implementation is based on the official Hugging Face tutorial, which can be found [here](https://huggingface.co/learn/nlp-course/chapter3/4).
+This repository contains a small toy project designed to learn how to use the `Hugging Face` ecosystem. This implementation is based on the official Hugging Face tutorial, which can be found [here](https://huggingface.co/learn/nlp-course/chapter3/4).
 
 
 ## 2. Organization

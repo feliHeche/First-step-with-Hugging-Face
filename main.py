@@ -31,6 +31,13 @@ def parse_args():
     # tensorboard parameters
     parser.add_argument('--training_average_metric', action='store', type=int, default=100, help='average metric used in the training.')
 
+    # determine if we save the model during the training
+    parser.add_argument('--save_model', action='store', type=bool, default=True, help='save the model during the training or not.')
+    parser.add_argument('--model_name', action='store', type=str, default="dummy-model", help='name of the model saved during the training.')
+
+    # determine if the push to hub the final model
+    parser.add_argument('--push_to_hub', action='store', type=bool, default=True, help='push the final model to the hub or not.')
+
     args = parser.parse_args()
 
     return args
