@@ -32,7 +32,6 @@ class OurDataset:
         self.tokenized_datasets = self.tokenized_datasets.rename_column("label", "labels")
         # ensure everything is using torch
         self.tokenized_datasets.set_format("torch")
-        # self.tokenized_datasets["train"].column_names
 
         # loading the data collator
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)

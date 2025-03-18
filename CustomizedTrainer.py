@@ -7,8 +7,10 @@ import evaluate
 from torch.utils.tensorboard import SummaryWriter
 import datetime
 from accelerate import Accelerator
-from huggingface_hub import Repository, get_full_repo_name
+from huggingface_hub import get_full_repo_name
 import os
+import gradio as gr
+import re
 
 
 
@@ -43,7 +45,25 @@ class CustomizedTrainer:
             num_training_steps=self.config.epochs*len(self.dataset.train_dataloader)
         )
 
-        # log folder
+        # if training mode, we initialize tensorboard
+        if self.config.mode == "training":
+            self._initialize_tensorboard()
+
+        # accelerator used to handle different working environments (gpu vs multiple gpu vs tpu)
+        self.accelerator = Accelerator()
+        self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
+
+        # settings the repo where we push the model -> only if required
+        if self.config.save_model:
+            os.makedirs("trained-model", exist_ok=True)
+    
+    def _initialize_tensorboard(self):
+        """
+        Initialize tensorboard. 
+
+        Build a tensorboard file and log hyperparameters. Only called in the training mode.
+        """
+                # log folder
         current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
         # tensorboard writer
@@ -56,14 +76,6 @@ class CustomizedTrainer:
         self.log_writer.add_text("hyperparameters", hyperparameters, global_step=0)
 
 
-        # accelerator used to handle different working environments (gpu vs multiple gpu vs tpu)
-        self.accelerator = Accelerator()
-        self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
-
-        # settings the repo where we push the model -> only if required
-        if self.config.save_model:
-            os.makedirs("trained-model", exist_ok=True)
-            
 
     def training(self):
         """
@@ -84,10 +96,6 @@ class CustomizedTrainer:
         
         # push the final model to the hub if required
         if self.config.push_to_hub:
-            # explicitly precise the mode type in the config -> to avoid error if not speecified in the checkpoint name
-            config= AutoConfig.from_pretrained(self.config.checkpoint)
-            config.model_type = 'bert'
-
             # push the model to the hub
             repo_name = get_full_repo_name(self.config.model_name)
             self.model.push_to_hub(repo_name)
@@ -161,10 +169,25 @@ class CustomizedTrainer:
         
         computed_metrics = metric.compute()
         for (k, v) in computed_metrics.items():
-            print(f"{k}: {v}")
+            print(f"{k}: {v*100:.2f}%")
 
-            # writing metrics in tensorboard
-            self.log_writer.add_scalar("Evaluation: " + str(k), v, step)
+            # writing metrics in tensorboard if training mode
+            if self.config.mode == "training":
+                self.log_writer.add_scalar("Evaluation: " + str(k), v, step)
+    
+
+    def _load_trained_model(self):
+        """
+        Load the trained model.
+        """
+        checkpoint_name = get_full_repo_name(self.config.model_name)
+
+        # overwiting our model with the already trained model
+        self.model = AutoModelForSequenceClassification.from_pretrained(checkpoint_name, num_labels=2)
+
+        # put the model on the same device as the dataset
+        self.model = self.accelerator.prepare(self.model)
+        print('Model has been successfully loaded.')
     
 
     def evaluation(self):
@@ -174,20 +197,51 @@ class CustomizedTrainer:
         Note that the model should have been trained and pushing to the hub before calling this function.
         """
         print("We are in evaluation mode.")
-        checkpoint_name = get_full_repo_name(self.config.model_name)
-        # print('Repo name:', checkpoint_name)
-        # test = AutoConfig.from_pretrained(checkpoint_name)
-        # print(test)
-        # overwiting our model with the already trained model
-        self.model = AutoModelForSequenceClassification.from_pretrained(checkpoint_name, num_labels=2)
-
-        # put the model on the same device as the dataset
-        accelerator_object = Accelerator()
-        self.model = accelerator_object.prepare(self.model)
-        print('Model has been successfully loaded.')
+        self._load_trained_model()
 
         # Model evaluation
         self._eval_model()
+
+    def demo(self):
+        """
+        Run a demo of the model.
+        """
+        # loading the best model
+        self._load_trained_model()
+
+        title = 'Paraphrase Detection'
+        description = 'This model has been trained to detect if two sentences are paraphrases or not. Specifically, the model outputs 1 ' \
+        'if the two sentences are paraphrases and 0 otherwise. Please enter two sentences to test the model.'
+        example = [['Amrozi accused his brother , whom he called " the witness " , of deliberately distorting his evidence. Referring to him as only " the witness " , Amrozi accused his brother of deliberately distorting his evidence .']]
+
+        demo = gr.Interface(fn=self._managing_demo_input, 
+                            inputs="text", 
+                            outputs="label", 
+                            title=title,
+                            description=description,
+                            examples=example)
+        
+        demo.launch()
+    
+
+    def _managing_demo_input(self, text_input):
+        """
+        Just a simple function to test the gradio interface.
+        """
+        # split the input text into two sentences
+        sentences = re.split(r'[.!?]', text_input)
+
+        # poreprocessing the input as expected by the model
+        text_input = self.dataset.tokenizer(sentences[0], sentences[1], truncation=True, return_tensors='pt')
+
+        # putting the input text in the same device as the model
+        text_input = {k: v.to(self.model.device) for k, v in text_input.items()}
+
+        # predict label 
+        output = self.model(**text_input)
+        output = torch.argmax(output.logits, dim=1).item()
+        # print('Output:', output)
+        return output
 
 
 

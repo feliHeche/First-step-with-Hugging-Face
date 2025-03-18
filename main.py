@@ -3,8 +3,6 @@ from CustomizedTrainer import CustomizedTrainer
 import argparse
 
 
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -16,8 +14,8 @@ def parse_args():
                         help='checkpin to load the model used in this project.')
     
     # main mode: training or evaluation
-    parser.add_argument('--mode', action='store', type=str, default="evaluation",   
-                        help='determine the main mode. Possible values: evaluation or training.')
+    parser.add_argument('--mode', action='store', type=str, default="demo",   
+                        help='determine the main mode. Possible values: training, evaluation, demo.')
     
     # dataset
     parser.add_argument('--data_name', action='store', type=str, default="glue",   
@@ -59,14 +57,15 @@ def main():
     # building the LLM
     model = CustomizedTrainer(config=config, dataset=dataset)
 
+    # running the expected mode
     if config.mode == "training":
-        # model training
         model.training()
     elif config.mode == "evaluation":
-        # model evaluation
         model.evaluation()
+    elif config.mode == "demo":
+        model.demo()
     else:
-        raise ValueError("Configuration mode should be either training or evaluation.")
+        raise ValueError("Configuration mode should be either training, evaluation or demo.")
 
 
 
