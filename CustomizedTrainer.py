@@ -1,4 +1,4 @@
-from transformers import AutoModelForSequenceClassification
+from transformers import AutoModelForSequenceClassification, AutoConfig
 from OurDataset import OurDataset
 from transformers import get_scheduler
 import torch
@@ -7,13 +7,15 @@ import evaluate
 from torch.utils.tensorboard import SummaryWriter
 import datetime
 from accelerate import Accelerator
+from huggingface_hub import Repository, get_full_repo_name
+import os
 
 
 
 class CustomizedTrainer:
     def __init__(self, config, dataset: OurDataset):
         """
-        Implementation of a NLP model using the Hugging Face library.
+        Implementation of a NLP model using the Hugging Face ecosystem.
 
         :param config: configuration used to train and evaluate the model. See parse_args() in main.py for more details.
         :parma dataset: dataset used to train the model. Expected to be an instance of OurDataset.
@@ -57,20 +59,40 @@ class CustomizedTrainer:
         # accelerator used to handle different working environments (gpu vs multiple gpu vs tpu)
         self.accelerator = Accelerator()
         self.model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)
-    
+
+        # settings the repo where we push the model -> only if required
+        if self.config.save_model:
+            os.makedirs("trained-model", exist_ok=True)
+            
 
     def training(self):
         """
         Main training loop.
         """ 
+
         print('#'*50 + " Model Performance before fine-tuning " + '#'*50)
         self._eval_model()
         print('#'*138)
+
         for tmp in range(self.config.epochs):
             print(('#'*50 + " Training epoch {}/" + str(self.config.epochs) + ' ' + '#'*50).format(tmp+1))
             self._train_model_one_epoch(tmp=tmp*len(self.dataset.train_dataloader))
             self._eval_model(step=tmp+1)
+            # local model saving
+            self.model.save_pretrained("trained-model/" + self.config.model_name  + '_epoch_' + str(tmp+1))
             print('#'*119)
+        
+        # push the final model to the hub if required
+        if self.config.push_to_hub:
+            # explicitly precise the mode type in the config -> to avoid error if not speecified in the checkpoint name
+            config= AutoConfig.from_pretrained(self.config.checkpoint)
+            config.model_type = 'bert'
+
+            # push the model to the hub
+            repo_name = get_full_repo_name(self.config.model_name)
+            self.model.push_to_hub(repo_name)
+            self.dataset.push_tokenizer_to_hub(repo_name=repo_name)
+            print("Final model has been pushed to the hub.")
 
 
     def _train_model_one_epoch(self, tmp=0):
@@ -143,7 +165,29 @@ class CustomizedTrainer:
 
             # writing metrics in tensorboard
             self.log_writer.add_scalar("Evaluation: " + str(k), v, step)
+    
 
+    def evaluation(self):
+        """
+        Load the final model and evaluate it.
+
+        Note that the model should have been trained and pushing to the hub before calling this function.
+        """
+        print("We are in evaluation mode.")
+        checkpoint_name = get_full_repo_name(self.config.model_name)
+        # print('Repo name:', checkpoint_name)
+        # test = AutoConfig.from_pretrained(checkpoint_name)
+        # print(test)
+        # overwiting our model with the already trained model
+        self.model = AutoModelForSequenceClassification.from_pretrained(checkpoint_name, num_labels=2)
+
+        # put the model on the same device as the dataset
+        accelerator_object = Accelerator()
+        self.model = accelerator_object.prepare(self.model)
+        print('Model has been successfully loaded.')
+
+        # Model evaluation
+        self._eval_model()
 
 
 

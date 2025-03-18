@@ -62,6 +62,12 @@ class OurDataset:
         :return: tokenized text.
         """
         return self.tokenizer(example["sentence1"], example["sentence2"], truncation=True)
+    
+    def push_tokenizer_to_hub(self, repo_name):
+        """
+        Push the tokenizer to the hub.
+        """
+        self.tokenizer.push_to_hub(repo_name)
 
 
 

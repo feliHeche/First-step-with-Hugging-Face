@@ -15,6 +15,10 @@ def parse_args():
     parser.add_argument('--checkpoint', action='store', type=str, default="bert-base-uncased",   
                         help='checkpin to load the model used in this project.')
     
+    # main mode: training or evaluation
+    parser.add_argument('--mode', action='store', type=str, default="evaluation",   
+                        help='determine the main mode. Possible values: evaluation or training.')
+    
     # dataset
     parser.add_argument('--data_name', action='store', type=str, default="glue",   
                         help='define the dataset name used in this project.')
@@ -33,7 +37,7 @@ def parse_args():
 
     # determine if we save the model during the training
     parser.add_argument('--save_model', action='store', type=bool, default=True, help='save the model during the training or not.')
-    parser.add_argument('--model_name', action='store', type=str, default="dummy-model", help='name of the model saved during the training.')
+    parser.add_argument('--model_name', action='store', type=str, default="bert-dummy-model", help='name of the model saved during the training.')
 
     # determine if the push to hub the final model
     parser.add_argument('--push_to_hub', action='store', type=bool, default=True, help='push the final model to the hub or not.')
@@ -55,8 +59,14 @@ def main():
     # building the LLM
     model = CustomizedTrainer(config=config, dataset=dataset)
 
-    # model training
-    model.training()
+    if config.mode == "training":
+        # model training
+        model.training()
+    elif config.mode == "evaluation":
+        # model evaluation
+        model.evaluation()
+    else:
+        raise ValueError("Configuration mode should be either training or evaluation.")
 
 
 
