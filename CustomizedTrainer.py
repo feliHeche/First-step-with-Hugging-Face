@@ -221,7 +221,7 @@ class CustomizedTrainer:
                             description=description,
                             examples=example)
         
-        demo.launch()
+        demo.launch(share=True)
     
 
     def _managing_demo_input(self, text_input):
@@ -240,7 +240,7 @@ class CustomizedTrainer:
         # predict label 
         output = self.model(**text_input)
         output = torch.argmax(output.logits, dim=1).item()
-        # print('Output:', output)
+
         return output
 
 

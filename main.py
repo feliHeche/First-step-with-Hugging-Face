@@ -13,7 +13,7 @@ def parse_args():
     parser.add_argument('--checkpoint', action='store', type=str, default="bert-base-uncased",   
                         help='checkpin to load the model used in this project.')
     
-    # main mode: training or evaluation
+    # main mode: training, evaluation or demo
     parser.add_argument('--mode', action='store', type=str, default="demo",   
                         help='determine the main mode. Possible values: training, evaluation, demo.')
     
