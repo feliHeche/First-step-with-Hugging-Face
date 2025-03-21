@@ -247,7 +247,7 @@ class CustomizedTrainer:
         For further details, please refer to the [GitHub repository](https://github.com/feliHeche/First-step-with-Hugging-Face) associated with this project.
 
         ## 3. Performance and limitations
-        The model achieves an accuracy of **92.45%** on the validation set. However, several limitations should be considered:
+        The model achieves an accuracy of **96.70%** on the validation set. However, several limitations should be considered:
 
         - Only the BiomedBERT architecture was tested, with minimal hyperparameter tuning. The current model is likely suboptimal and could benefit from further experimentation.
         - The dataset is relatively small and limited to the English language, which may restrict the model’s generalization capabilities.

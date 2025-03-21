@@ -24,9 +24,9 @@ def parse_args():
 
     
     # training parameters
-    parser.add_argument('--batch_size', action='store', type=int, default=8, help='batch size used in the training.')
+    parser.add_argument('--batch_size', action='store', type=int, default=4, help='batch size used in the training.')
     parser.add_argument('--lr', action='store', type=float, default=5e-5, help='learning rate used in the training.')
-    parser.add_argument('--epochs', action='store', type=int, default=3, help='number of epochs used in the training.')
+    parser.add_argument('--epochs', action='store', type=int, default=14, help='number of epochs used in the training.')
     parser.add_argument('--optimizer', action='store', type=str, default="adamw", help='optimizer used in the training.')
     parser.add_argument('--shuffle', action='store', type=bool, default=True, help='shuffle the dataset or not.')
 
