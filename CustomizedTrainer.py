@@ -202,7 +202,7 @@ class CustomizedTrainer:
         checkpoint_name = get_full_repo_name(self.config.model_name)
 
         # overwiting our model with the already trained model
-        self.model = AutoModelForSequenceClassification.from_pretrained(checkpoint_name, num_labels=2)
+        self.model = AutoModelForSequenceClassification.from_pretrained(checkpoint_name, num_labels=self.dataset.num_label)
 
         # put the model on the same device as the dataset
         self.model = self.accelerator.prepare(self.model)
@@ -228,14 +228,45 @@ class CustomizedTrainer:
         # loading the best model
         self._load_trained_model()
 
-        title = 'Paraphrase Detection'
-        description = 'This model has been trained to detect if two sentences are paraphrases or not. Specifically, the model outputs 1 ' \
-        'if the two sentences are paraphrases and 0 otherwise. Please enter two sentences to test the model.'
-        example = [['Amrozi accused his brother , whom he called " the witness " , of deliberately distorting his evidence. Referring to him as only " the witness " , Amrozi accused his brother of deliberately distorting his evidence .']]
+        title = 'Symptom to diagnosis'
+
+        description = """
+        ## 1. Overview
+         This model performs automatic diagnosis based on test descriptions. It classifies the input text into one of 22 predefined diagnostic categories:
+         | Category                 | Category         | Category                        | Category              | Category                 |
+         |--------------------------|------------------|---------------------------------|-----------------------|--------------------------|
+         | allergy                  | common cold      | gastroesophageal reflux disease | migraine              |  urinary tract infection |
+         | arthritis                | dengue           | hypertension                    | peptic ulcer disease  | varicose veins           |
+         | bronchial asthma         | diabetes         | impetigo                        | pneumonia             |
+         | cervical spondylosis     | drug reaction    | jaundice                        | psoriasis             |
+         | chicken pox              | fungal infection | malaria                         | typhoid               | 
+        ## 2. Model and dataset  
+        This model is built upon [BiomedBERT](https://huggingface.co/microsoft/BiomedNLP-BiomedBERT-base-uncased-abstract), a large language model pretrained on PubMed abstracts.  
+        It was then fine-tuned using the [symptom_to_diagnosis](https://huggingface.co/datasets/gretelai/symptom_to_diagnosis) dataset, which contains 835 training examples and 212 validation examples.
+
+        For further details, please refer to the [GitHub repository](https://github.com/feliHeche/First-step-with-Hugging-Face) associated with this project.
+
+        ## 3. Performance and limitations
+        The model achieves an accuracy of **92.45%** on the validation set. However, several limitations should be considered:
+
+        - Only the BiomedBERT architecture was tested, with minimal hyperparameter tuning. The current model is likely suboptimal and could benefit from further experimentation.
+        - The dataset is relatively small and limited to the English language, which may restrict the model’s generalization capabilities.
+        - The labels in the dataset have not been manually verified by medical professionals, raising potential concerns about label quality.
+
+
+        ## 4. Model interface
+        Users may enter a symptom description in the left-hand input box. The model will output the predicted diagnosis in the right-hand result panel.
+        """
+        
+
+        example = [['I\'ve been having trouble sleeping because of the rash. It\'s itchy and painful. I\'ve also noticed that my nails have little dents in them, which is really alarming. And my joints are sore every day, and I don\'t know why.'],
+                   ['I have a rash on my skin that is red, raised, and filled with fluid. It is painful to touch and I have a fever.'],
+                   ['I\'ve been having headaches, chest discomfort, dizziness, and difficulty concentrating.']
+                   ]
 
         demo = gr.Interface(fn=self._managing_demo_input, 
                             inputs="text", 
-                            outputs="label", 
+                            outputs="text", 
                             title=title,
                             description=description,
                             examples=example)
@@ -245,13 +276,11 @@ class CustomizedTrainer:
 
     def _managing_demo_input(self, text_input):
         """
-        Just a simple function to test the gradio interface.
+        Just a simple demo for our model.
         """
-        # split the input text into two sentences
-        sentences = re.split(r'[.!?]', text_input)
 
         # poreprocessing the input as expected by the model
-        text_input = self.dataset.tokenizer(sentences[0], sentences[1], truncation=True, return_tensors='pt')
+        text_input = self.dataset.tokenizer(text_input, truncation=True, return_tensors='pt')
 
         # putting the input text in the same device as the model
         text_input = {k: v.to(self.model.device) for k, v in text_input.items()}
@@ -260,7 +289,10 @@ class CustomizedTrainer:
         output = self.model(**text_input)
         output = torch.argmax(output.logits, dim=1).item()
 
-        return output
+        # converting label into readable predicion
+        text_prediction = self.dataset.id_to_string[str(output)]
+
+        return text_prediction
 
 
 
