@@ -1,9 +1,8 @@
-from transformers import AutoModelForSequenceClassification, AutoConfig
+from transformers import AutoModelForSequenceClassification
 from OurDataset import OurDataset
 from transformers import get_scheduler
 import torch
 from tqdm.auto import tqdm
-import evaluate
 from torch.utils.tensorboard import SummaryWriter
 import datetime
 from accelerate import Accelerator
@@ -11,6 +10,7 @@ from huggingface_hub import get_full_repo_name
 import os
 import gradio as gr
 import re
+from utils import compute_metrics
 
 
 
@@ -25,11 +25,11 @@ class CustomizedTrainer:
         # loading all parameters
         self.config = config
 
-        # loading pretrained model
-        self.model = AutoModelForSequenceClassification.from_pretrained(self.config.checkpoint, num_labels=2)
-
         # our customized dataset
         self.dataset = dataset
+
+        # loading pretrained model
+        self.model = AutoModelForSequenceClassification.from_pretrained(self.config.checkpoint, num_labels=self.dataset.num_label)
 
         # optimizer
         if self.config.optimizer == "adamw":
@@ -63,7 +63,8 @@ class CustomizedTrainer:
 
         Build a tensorboard file and log hyperparameters. Only called in the training mode.
         """
-                # log folder
+        
+        # log folder
         current_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
         # tensorboard writer
@@ -110,8 +111,11 @@ class CustomizedTrainer:
         :param tmp: number of training steps already done.
         """
         # Used to track accuracy and loss
-        running_loss = 0.0
-        running_correct_predictions = 0
+        trackers = {
+            'predictions': [],
+            'labels': [],
+            'loss': [],
+        }
 
         progress_bar = tqdm(total=len(self.dataset.train_dataloader), desc="Training")
         self.model.train()
@@ -131,20 +135,25 @@ class CustomizedTrainer:
             # clear gradient before the next batch
             self.optimizer.zero_grad()
 
-            # update metrics
-            running_loss += loss.item()
-            predictions = torch.argmax(outputs.logits, dim=1)
-            running_correct_predictions += torch.sum(predictions == batch["labels"]).item()
+            # add measure to our trackers
+            trackers['predictions'].append(torch.argmax(outputs.logits, dim=-1))
+            trackers['labels'].append(batch['labels'])
+            trackers['loss'].append(outputs.loss)
+
+            # compute metrics
+            computed_metrics = compute_metrics(trackers)
 
             # writing in tensorboard if needed
             if (progress_bar.n > 0) & (progress_bar.n % self.config.training_average_metric == 0):
-                self.log_writer.add_scalar("Training: loss", running_loss, tmp+progress_bar.n)
-                self.log_writer.add_scalar("Training: accuracy", running_correct_predictions/(self.config.training_average_metric*self.config.batch_size), 
-                                           tmp+progress_bar.n)
+                self.log_writer.add_scalar("Training: loss", computed_metrics['loss'], tmp+progress_bar.n)
+                self.log_writer.add_scalar("Training: accuracy", computed_metrics['accuracy'], tmp+progress_bar.n)
                 
-                # settting tracker back to 0
-                running_loss = 0.0
-                running_correct_predictions = 0
+                # reinitialization of the trackers
+                trackers = {
+                    'predictions': [],
+                    'labels': [],
+                    'loss': [],
+                }
 
             progress_bar.update(1)
 
@@ -155,7 +164,13 @@ class CustomizedTrainer:
 
         :param step: number of evaluations already done.
         """
-        metric = evaluate.load(self.config.data_name, self.config.data_type)
+        # trackers that track predictions and labels
+        trackers = {
+            'predictions': [],
+            'labels': [],
+            'loss': [],
+        }
+
         print('Model evaluation:')
         self.model.eval()
         for batch in self.dataset.eval_dataloader:
@@ -163,11 +178,15 @@ class CustomizedTrainer:
             # ensure no gradient is computed
             with torch.no_grad():
                 outputs = self.model(**batch)
-            
+    
             predictions = torch.argmax(outputs.logits, dim=1)
-            metric.add_batch(predictions=predictions, references=batch["labels"])
-        
-        computed_metrics = metric.compute()
+
+            # add measure to the trackers
+            trackers['predictions'].append(predictions)
+            trackers['labels'].append(batch['labels'])
+            trackers['loss'].append(outputs.loss)
+
+        computed_metrics = compute_metrics(trackers=trackers)
         for (k, v) in computed_metrics.items():
             print(f"{k}: {v*100:.2f}%")
 

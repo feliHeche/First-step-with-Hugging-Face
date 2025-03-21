@@ -12,9 +12,10 @@ def parse_args():
     # checkpoint
     parser.add_argument('--checkpoint', action='store', type=str, default="bert-base-uncased",   
                         help='checkpin to load the model used in this project.')
+
     
     # main mode: training, evaluation or demo
-    parser.add_argument('--mode', action='store', type=str, default="demo",   
+    parser.add_argument('--mode', action='store', type=str, default="training",   
                         help='determine the main mode. Possible values: training, evaluation, demo.')
     
     # dataset
@@ -22,6 +23,9 @@ def parse_args():
                         help='define the dataset name used in this project.')
     parser.add_argument('--data_type', action='store', type=str, default="mrpc",   
                         help='define the dataset name used in this project.')
+    parser.add_argument('--dataset_checkpoint', action='store', type=str, default="gretelai/symptom_to_diagnosis",   
+                        help='define the dataset name used in this project.')
+
     
     # training parameters
     parser.add_argument('--batch_size', action='store', type=int, default=8, help='batch size used in the training.')
